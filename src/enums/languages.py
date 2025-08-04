@@ -1,4 +1,4 @@
-SupportedLanguages = [
+LANGUAGES = [
     'arabic',
     'german',
     'spanish',
