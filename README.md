@@ -16,7 +16,7 @@ Antes de usar, você precisa ter instalado:
 
 Para instalar todas as dependências (Python e Node.js), execute:
 ```bash
-    ./install.sh
+    ./start.sh
 ```
 Esse script irá:
 
