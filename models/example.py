@@ -4,6 +4,15 @@ from typing import List, Optional
 
 
 @dataclass
+class WebImageResult:
+    title: str
+    thumb_url: str
+    full_url: str
+    image_bytes: Optional[bytes] = field(default=None, repr=False)
+    extension: str = ".jpg"
+
+
+@dataclass
 class ExampleItem:
     id: int
     source: str
@@ -14,6 +23,8 @@ class ExampleItem:
     origin: str = "reverso"  # "reverso" | "ai"
     audio_bytes: Optional[bytes] = field(default=None, repr=False)
     audio_filename: str = ""
+    image_bytes: Optional[bytes] = field(default=None, repr=False)
+    image_filename: str = ""
 
     def __post_init__(self) -> None:
         if not self.source_html:

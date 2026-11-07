@@ -18,6 +18,7 @@ build/
 user_config.json
 meta.json
 user_files/
+LANCAMENTO_ANKIWEB.md
 
 .vscode/
 .idea/

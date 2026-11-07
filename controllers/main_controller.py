@@ -1,22 +1,24 @@
 from typing import Dict, List, Tuple
 from ..enums.languages import LANGUAGE_INFO, LANGUAGES
-from ..models.example import ExampleItem, LookupResult
+from ..models.example import ExampleItem, LookupResult, WebImageResult
 from ..models.note_config import NoteExportConfig
 from ..services.ai_service import AIService
 from ..services.anki_service import AnkiService
 from ..services.config_service import ConfigService
+from ..services.image_service import ImageService
 from ..services.reverso_service import ReversoService
 from ..services.tts_service import TTSService
 
 
 class MainController:
-    """Orquestrador principal entre a interface gráfica e os serviços de Reverso, IA, TTS e Anki."""
+    """Orquestrador principal entre a interface gráfica e os serviços de Reverso, IA, TTS, Imagens e Anki."""
 
     def __init__(self) -> None:
         self.config = ConfigService()
         self.reverso = ReversoService()
         self.ai = AIService(self.config)
         self.tts = TTSService(self.config)
+        self.images = ImageService(self.config)
         self.anki = AnkiService()
 
     def get_languages(self) -> List[Tuple[str, str]]:
@@ -81,6 +83,15 @@ class MainController:
         example.audio_filename = filename
         return audio_bytes, filename
 
+    def buscar_imagens_web(self, termo: str, limit: int = 6) -> List[WebImageResult]:
+        return self.images.search_web_images(termo, limit=limit)
+
+    def gerar_imagem_ia(self, prompt: str) -> Tuple[bytes, str]:
+        return self.images.generate_ai_image(prompt)
+
+    def carregar_imagem_arquivo(self, file_path: str) -> Tuple[bytes, str]:
+        return self.images.load_from_file(file_path)
+
     def enviar_para_anki(
         self,
         exemplos: List[ExampleItem],
@@ -89,20 +100,28 @@ class MainController:
         query: str = "",
     ) -> Tuple[int, List[str]]:
         """
-        Gera o áudio (se habilitado), salva na coleção de mídia do Anki
+        Gera o áudio (se habilitado), salva áudios e imagens na pasta collection.media do Anki
         e cria os flashcards no deck selecionado.
         Retorna (quantidade_criada, lista_de_avisos).
         """
         warnings: List[str] = []
 
-        if export_config.include_audio:
-            for ex in exemplos:
+        for ex in exemplos:
+            if export_config.include_audio:
                 try:
                     audio_bytes, filename = self.gerar_audio_exemplo(ex, source_lang)
                     saved_name = self.anki.salvar_midia(filename, audio_bytes)
                     ex.audio_filename = saved_name
                 except Exception as exc:
                     warnings.append(f"Áudio não gerado para '{ex.source[:25]}...': {exc}")
+
+            if export_config.include_image and ex.image_bytes:
+                try:
+                    img_filename = ex.image_filename or self.images.make_filename(ex.image_bytes, ".jpg")
+                    saved_img = self.anki.salvar_midia(img_filename, ex.image_bytes)
+                    ex.image_filename = saved_img
+                except Exception as exc:
+                    warnings.append(f"Imagem não salva para '{ex.source[:25]}...': {exc}")
 
         added = self.anki.adicionar_exemplos(exemplos, export_config, query=query)
         return added, warnings

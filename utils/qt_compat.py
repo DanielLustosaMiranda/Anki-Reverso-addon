@@ -16,13 +16,19 @@ try:
     from aqt.qt import (  # type: ignore
         QAction,
         QApplication,
+        QBuffer,
+        QByteArray,
         QCheckBox,
         QComboBox,
         QDialog,
+        QFileDialog,
         QFormLayout,
         QFrame,
+        QGridLayout,
         QGroupBox,
         QHBoxLayout,
+        QIODevice,
+        QImage,
         QKeySequence,
         QLabel,
         QLineEdit,
@@ -30,6 +36,7 @@ try:
         QListWidgetItem,
         QMessageBox,
         QObject,
+        QPixmap,
         QPlainTextEdit,
         QProgressBar,
         QPushButton,
@@ -58,6 +65,9 @@ try:
 except ImportError:
     try:
         from PyQt6.QtCore import (
+            QBuffer,
+            QByteArray,
+            QIODevice,
             QObject,
             QRunnable,
             Qt,
@@ -65,14 +75,16 @@ except ImportError:
             pyqtSignal,
             pyqtSlot,
         )
-        from PyQt6.QtGui import QAction, QKeySequence
+        from PyQt6.QtGui import QAction, QImage, QKeySequence, QPixmap
         from PyQt6.QtWidgets import (
             QApplication,
             QCheckBox,
             QComboBox,
             QDialog,
+            QFileDialog,
             QFormLayout,
             QFrame,
+            QGridLayout,
             QGroupBox,
             QHBoxLayout,
             QLabel,
@@ -99,12 +111,13 @@ except ImportError:
             def __init__(self, *args: Any, **kwargs: Any) -> None:
                 pass
 
-        QAction = QApplication = QCheckBox = QComboBox = QDialog = _Stub  # type: ignore
-        QFormLayout = QFrame = QGroupBox = QHBoxLayout = QKeySequence = _Stub  # type: ignore
-        QLabel = QLineEdit = QListWidget = QListWidgetItem = QMessageBox = _Stub  # type: ignore
-        QObject = QPlainTextEdit = QProgressBar = QPushButton = QRunnable = _Stub  # type: ignore
-        QScrollArea = QSizePolicy = QSpinBox = QSplitter = QTabWidget = _Stub  # type: ignore
-        Qt = QThreadPool = QVBoxLayout = QWidget = _Stub  # type: ignore
+        QAction = QApplication = QBuffer = QByteArray = QCheckBox = QComboBox = _Stub  # type: ignore
+        QDialog = QFileDialog = QFormLayout = QFrame = QGridLayout = QGroupBox = _Stub  # type: ignore
+        QHBoxLayout = QIODevice = QImage = QKeySequence = QLabel = QLineEdit = _Stub  # type: ignore
+        QListWidget = QListWidgetItem = QMessageBox = QObject = QPixmap = _Stub  # type: ignore
+        QPlainTextEdit = QProgressBar = QPushButton = QRunnable = QScrollArea = _Stub  # type: ignore
+        QSizePolicy = QSpinBox = QSplitter = QTabWidget = Qt = QThreadPool = _Stub  # type: ignore
+        QVBoxLayout = QWidget = _Stub  # type: ignore
 
         def pyqtSignal(*args: Any, **kwargs: Any) -> Any:  # type: ignore
             return None

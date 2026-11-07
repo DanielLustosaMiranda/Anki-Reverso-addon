@@ -11,7 +11,7 @@ class AnkiService:
     """Serviço de integração nativa com a coleção do Anki (mw.col) e fallback para AnkiConnect."""
 
     CUSTOM_MODEL_NAME = "Reverso AI Card"
-    CUSTOM_FIELDS = ["Front", "Back", "Explanation", "Audio", "Word"]
+    CUSTOM_FIELDS = ["Front", "Back", "Explanation", "Image", "Audio", "Word"]
 
     CARD_CSS = """
 .card {
@@ -38,6 +38,15 @@ class AnkiService:
 }
 .nightMode .sentence-back {
     color: #34d399;
+}
+.card-image {
+    margin: 16px auto;
+}
+.card-image img {
+    max-width: 340px;
+    max-height: 240px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 .explanation-box {
     margin-top: 18px;
@@ -73,6 +82,9 @@ class AnkiService:
 {{FrontSide}}
 <hr id="answer">
 <div class="sentence-back">{{Back}}</div>
+{{#Image}}
+<div class="card-image">{{Image}}</div>
+{{/Image}}
 {{#Explanation}}
 <div class="explanation-box">
     <b>Nota Contextual:</b><br>{{Explanation}}
@@ -125,11 +137,24 @@ class AnkiService:
         return ["Front", "Back"]
 
     def ensure_custom_note_type(self) -> Optional[Dict[str, Any]]:
-        """Garante que o modelo de nota 'Reverso AI Card' exista na coleção do Anki."""
+        """Garante que o modelo de nota 'Reverso AI Card' exista e possua todos os campos atuais."""
         if is_running_in_anki() and mw is not None and mw.col is not None:
             mm = mw.col.models
             existing = mm.by_name(self.CUSTOM_MODEL_NAME)
             if existing is not None:
+                # Atualiza campos caso o usuário tinha versão anterior sem o campo Image
+                existing_fields = [f["name"] for f in existing.get("flds", [])]
+                updated = False
+                for field_name in self.CUSTOM_FIELDS:
+                    if field_name not in existing_fields:
+                        mm.add_field(existing, mm.new_field(field_name))
+                        updated = True
+                if updated:
+                    existing["css"] = self.CARD_CSS.strip()
+                    if existing.get("tmpls"):
+                        existing["tmpls"][0]["qfmt"] = self.FRONT_TEMPLATE.strip()
+                        existing["tmpls"][0]["afmt"] = self.BACK_TEMPLATE.strip()
+                    mm.save(existing)
                 return existing
 
             model = mm.new(self.CUSTOM_MODEL_NAME)
@@ -165,13 +190,13 @@ class AnkiService:
             )
         return None
 
-    def salvar_midia(self, filename: str, audio_bytes: bytes) -> str:
-        """Grava o arquivo de áudio na pasta collection.media do Anki e retorna o nome final."""
+    def salvar_midia(self, filename: str, media_bytes: bytes) -> str:
+        """Grava arquivo de mídia (áudio ou imagem) na pasta collection.media do Anki."""
         if is_running_in_anki() and mw is not None and mw.col is not None:
-            return mw.col.media.write_data(filename, audio_bytes)
+            return mw.col.media.write_data(filename, media_bytes)
 
         # Fallback AnkiConnect
-        b64_data = base64.b64encode(audio_bytes).decode("ascii")
+        b64_data = base64.b64encode(media_bytes).decode("ascii")
         res = self._anki_connect_invoke(
             "storeMediaFile",
             {"filename": filename, "data": b64_data},
@@ -201,7 +226,6 @@ class AnkiService:
             deck_id = col.decks.id(export_config.deck_name)
             model = col.models.by_name(target_model_name)
             if model is None:
-                # Fallback para o primeiro modelo disponível caso o escolhido não exista
                 all_models = col.models.all()
                 if not all_models:
                     raise RuntimeError("Nenhum Note Type encontrado na coleção do Anki.")
@@ -250,26 +274,33 @@ class AnkiService:
         model_fields: List[str],
     ) -> Dict[str, str]:
         sound_tag = f"[sound:{ex.audio_filename}]" if (export_config.include_audio and ex.audio_filename) else ""
+        img_tag = f'<img src="{ex.image_filename}">' if (export_config.include_image and ex.image_filename) else ""
         front_html = ex.formatted_source_html()
         back_html = ex.formatted_target_html()
-        explanation_html = ex.explanation.replace("\n", "<br>") if (export_config.include_explanation and ex.explanation) else ""
+        explanation_html = (
+            ex.explanation.replace("\n", "<br>")
+            if (export_config.include_explanation and ex.explanation)
+            else ""
+        )
 
         if export_config.use_custom_note_type and set(self.CUSTOM_FIELDS).issubset(set(model_fields)):
             return {
                 "Front": front_html,
                 "Back": back_html,
                 "Explanation": explanation_html,
+                "Image": img_tag,
                 "Audio": sound_tag,
                 "Word": query,
             }
 
-        # Mapeamento dinâmico para Note Types existentes (ex: Basic, Básico, etc.)
+        # Mapeamento dinâmico para Note Types personalizados
         result: Dict[str, str] = {f: "" for f in model_fields}
         front_field = export_config.field_mapping.get("front") or (model_fields[0] if model_fields else "Front")
         back_field = export_config.field_mapping.get("back") or (
             model_fields[1] if len(model_fields) > 1 else front_field
         )
         exp_field = export_config.field_mapping.get("explanation") or ""
+        img_field = export_config.field_mapping.get("image") or ""
         audio_field = export_config.field_mapping.get("audio") or front_field
 
         if front_field not in result and model_fields:
@@ -282,6 +313,13 @@ class AnkiService:
             result[back_field] = f"{front_html}<br><hr>{back_html}"
         else:
             result[back_field] = back_html
+
+        if img_tag:
+            if img_field and img_field in result:
+                sep = "<br>" if result[img_field] else ""
+                result[img_field] = f"{result[img_field]}{sep}{img_tag}"
+            else:
+                result[back_field] = f"{result[back_field]}<br><br>{img_tag}"
 
         if explanation_html:
             if exp_field and exp_field in result:

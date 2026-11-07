@@ -2,7 +2,7 @@
   "package": "anki_reverso_ai_addon",
   "name": "Reverso Context & AI Lookup + TTS",
   "version": "2.0.0",
-  "homepage": "https://github.com/ssrjay/Anki-Reverso-addon",
+  "homepage": "https://github.com/DanielLustosaMiranda/Anki-Reverso-addon",
   "conflicts": [],
   "mod": 0
 }

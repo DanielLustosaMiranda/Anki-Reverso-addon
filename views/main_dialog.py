@@ -15,6 +15,7 @@ from ..utils.qt_compat import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QPixmap,
     QPlainTextEdit,
     QProgressBar,
     QPushButton,
@@ -26,6 +27,7 @@ from ..utils.qt_compat import (
     notify_warning,
     play_audio_bytes,
 )
+from .image_dialog import ImagePickerDialog
 from .settings_dialog import SettingsDialog
 
 
@@ -68,7 +70,6 @@ class EditExampleDialog(QDialog):
         if src_html:
             self.example.source_html = src_html
             self.example.source = ExampleItem._strip_tags(src_html)
-            # Invalida cache de áudio caso o texto original tenha mudado
             self.example.audio_bytes = None
             self.example.audio_filename = ""
         if trg_html:
@@ -79,13 +80,14 @@ class EditExampleDialog(QDialog):
 
 
 class ExampleRowWidget(QFrame):
-    """Widget customizado para exibir uma frase, sua tradução, explicação da IA e botões de ação."""
+    """Widget customizado para exibir uma frase, sua tradução, explicação, imagem e botões de ação."""
 
     def __init__(
         self,
         example: ExampleItem,
         on_listen: Callable[["ExampleRowWidget"], None],
         on_explain: Callable[["ExampleRowWidget"], None],
+        on_image: Callable[["ExampleRowWidget"], None],
         on_edit: Callable[["ExampleRowWidget"], None],
         parent: Optional[QWidget] = None,
     ) -> None:
@@ -93,6 +95,7 @@ class ExampleRowWidget(QFrame):
         self.example = example
         self.on_listen = on_listen
         self.on_explain = on_explain
+        self.on_image = on_image
         self.on_edit = on_edit
 
         self.setFrameShape(QFrame.Shape.StyledPanel)
@@ -106,6 +109,16 @@ class ExampleRowWidget(QFrame):
 
         self.checkbox = QCheckBox()
         root_layout.addWidget(self.checkbox, alignment=Qt.AlignmentFlag.AlignTop)
+
+        # Miniatura da imagem anexada (visível apenas quando há imagem)
+        self.thumb_label = QLabel()
+        self.thumb_label.setFixedSize(88, 66)
+        self.thumb_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.thumb_label.setStyleSheet(
+            "border: 1px solid #d1d5db; border-radius: 6px; background-color: #f3f4f6;"
+        )
+        self.thumb_label.setVisible(False)
+        root_layout.addWidget(self.thumb_label, alignment=Qt.AlignmentFlag.AlignTop)
 
         # Coluna central com textos
         text_layout = QVBoxLayout()
@@ -158,22 +171,29 @@ class ExampleRowWidget(QFrame):
         self.explain_btn.setFixedWidth(115)
         self.explain_btn.clicked.connect(lambda: self.on_explain(self))
 
+        self.image_btn = QPushButton("Imagem")
+        self.image_btn.setFixedWidth(115)
+        self.image_btn.clicked.connect(lambda: self.on_image(self))
+
         self.edit_btn = QPushButton("Editar")
         self.edit_btn.setFixedWidth(115)
         self.edit_btn.clicked.connect(lambda: self.on_edit(self))
 
         actions_layout.addWidget(self.listen_btn)
         actions_layout.addWidget(self.explain_btn)
+        actions_layout.addWidget(self.image_btn)
         actions_layout.addWidget(self.edit_btn)
         actions_layout.addStretch(1)
 
         root_layout.addLayout(actions_layout)
 
     def refresh_display(self) -> None:
-        badge_text = "IA" if self.example.origin == "ai" else "Reverso"
+        badge_parts = ["IA" if self.example.origin == "ai" else "Reverso"]
         if self.example.audio_bytes:
-            badge_text += " | Áudio Pronto"
-        self.origin_badge.setText(badge_text)
+            badge_parts.append("Áudio Pronto")
+        if self.example.image_bytes:
+            badge_parts.append("Com Imagem")
+        self.origin_badge.setText(" | ".join(badge_parts))
         self.source_label.setText(self.example.formatted_source_html())
         self.target_label.setText(self.example.formatted_target_html())
 
@@ -183,9 +203,27 @@ class ExampleRowWidget(QFrame):
         else:
             self.explanation_label.setVisible(False)
 
+        if self.example.image_bytes:
+            pix = QPixmap()
+            if pix.loadFromData(self.example.image_bytes):
+                self.thumb_label.setPixmap(
+                    pix.scaled(
+                        84,
+                        62,
+                        Qt.AspectRatioMode.KeepAspectRatio,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                )
+                self.thumb_label.setVisible(True)
+            else:
+                self.thumb_label.setVisible(False)
+        else:
+            self.thumb_label.clear()
+            self.thumb_label.setVisible(False)
+
 
 class ReversoMainDialog(QDialog):
-    """Janela principal do Add-on Reverso Context + IA + TTS para o Anki."""
+    """Janela principal do Add-on Reverso Context + IA + TTS + Imagens para o Anki."""
 
     def __init__(
         self,
@@ -198,7 +236,7 @@ class ReversoMainDialog(QDialog):
         self.current_query: str = initial_query.strip()
 
         self.setWindowTitle("Reverso Context & AI Lookup - Anki Add-on")
-        self.resize(860, 680)
+        self.resize(900, 700)
 
         self._build_ui()
         self._populate_initial_data()
@@ -286,9 +324,12 @@ class ReversoMainDialog(QDialog):
         )
         self.include_explanation_check = QCheckBox("Incluir explicação no verso")
         self.include_explanation_check.setChecked(True)
+        self.include_image_check = QCheckBox("Incluir imagens anexadas")
+        self.include_image_check.setChecked(True)
 
         options_bar.addWidget(self.include_audio_check)
         options_bar.addWidget(self.include_explanation_check)
+        options_bar.addWidget(self.include_image_check)
         options_bar.addStretch(1)
 
         self.select_all_btn = QPushButton("Selecionar Todos")
@@ -448,7 +489,6 @@ class ReversoMainDialog(QDialog):
                 notify_warning(result.error, self)
                 self._set_busy(False, "Falha ao gerar frases com IA.")
                 return
-            # Adiciona as frases da IA no topo da lista (ou substitui se estiver vazia)
             self._display_lookup_result(result, append=bool(self.current_examples))
             self._set_busy(False, f"{len(result.examples)} frases geradas com IA.")
 
@@ -476,6 +516,7 @@ class ReversoMainDialog(QDialog):
             example=ex,
             on_listen=self._on_row_listen,
             on_explain=self._on_row_explain,
+            on_image=self._on_row_image,
             on_edit=self._on_row_edit,
             parent=self.examples_list,
         )
@@ -552,6 +593,17 @@ class ReversoMainDialog(QDialog):
 
         run_async(_task, on_result=_on_ok, on_error=_on_err, on_finished=_on_done)
 
+    def _on_row_image(self, row_widget: ExampleRowWidget) -> None:
+        query = self.current_query or self.search_input.text().strip()
+        dlg = ImagePickerDialog(
+            controller=self.controller,
+            example=row_widget.example,
+            default_query=query,
+            parent=self,
+        )
+        if dlg.exec():
+            self._update_row_size(row_widget)
+
     def _on_row_edit(self, row_widget: ExampleRowWidget) -> None:
         dlg = EditExampleDialog(row_widget.example, self)
         if dlg.exec():
@@ -602,6 +654,7 @@ class ReversoMainDialog(QDialog):
             use_custom_note_type=bool(cfg.get("use_custom_note_type", True)),
             include_audio=self.include_audio_check.isChecked(),
             include_explanation=self.include_explanation_check.isChecked(),
+            include_image=self.include_image_check.isChecked(),
             tags=["reverso-ai", source_lang, deck_name.replace(" ", "_")],
             field_mapping=cfg.get("field_mapping") or {},
         )

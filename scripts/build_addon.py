@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
-Empacota o projeto em um arquivo instalável `.ankiaddon` na pasta `dist/`
-e opcionalmente instala direto na pasta `addons21/` do Anki do usuário.
+Empacota o projeto em dois arquivos `.ankiaddon` na pasta `dist/`:
+1. `anki_reverso_ai_addon.ankiaddon` -> Para instalação manual local (inclui manifest.json).
+2. `anki_reverso_ai_addon_ankiweb.ankiaddon` -> Formato exigido pelo site AnkiWeb para publicação (sem manifest.json).
+Opcionalmente instala direto na pasta `addons21/` do Anki do usuário com `--install`.
 """
 
 import argparse
@@ -10,11 +12,11 @@ import shutil
 import zipfile
 from pathlib import Path
 
-INCLUDE_PATHS = [
+BASE_PATHS = [
     "__init__.py",
-    "manifest.json",
     "config.json",
     "config.md",
+    "LICENSE",
     "controllers",
     "enums",
     "models",
@@ -24,10 +26,14 @@ INCLUDE_PATHS = [
 ]
 
 
-def build_package(project_root: Path, output_file: Path) -> Path:
+def build_package(project_root: Path, output_file: Path, include_manifest: bool = True) -> Path:
     output_file.parent.mkdir(parents=True, exist_ok=True)
+    paths = list(BASE_PATHS)
+    if include_manifest:
+        paths.append("manifest.json")
+
     with zipfile.ZipFile(output_file, "w", zipfile.ZIP_DEFLATED) as zf:
-        for rel_item in INCLUDE_PATHS:
+        for rel_item in paths:
             full_path = project_root / rel_item
             if not full_path.exists():
                 continue
@@ -57,7 +63,7 @@ def install_to_anki(project_root: Path, addon_folder_name: str = "anki_reverso_a
     target_dir = addons_dir / addon_folder_name
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    for rel_item in INCLUDE_PATHS:
+    for rel_item in BASE_PATHS + ["manifest.json"]:
         src = project_root / rel_item
         dst = target_dir / rel_item
         if not src.exists():
@@ -82,13 +88,19 @@ def main() -> None:
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
-    out_path = project_root / "dist" / "anki_reverso_ai_addon.ankiaddon"
-    built = build_package(project_root, out_path)
-    print(f"Pacote .ankiaddon gerado em: {built}")
+
+    local_pkg = project_root / "dist" / "anki_reverso_ai_addon.ankiaddon"
+    ankiweb_pkg = project_root / "dist" / "anki_reverso_ai_addon_ankiweb.ankiaddon"
+
+    build_package(project_root, local_pkg, include_manifest=True)
+    build_package(project_root, ankiweb_pkg, include_manifest=False)
+
+    print(f"Pacote para instalação manual local gerado em: {local_pkg}")
+    print(f"Pacote para publicação no AnkiWeb gerado em:   {ankiweb_pkg}")
 
     if args.install:
         installed_dir = install_to_anki(project_root)
-        print(f"Add-on instalado na pasta do Anki em: {installed_dir}")
+        print(f"Add-on atualizado na pasta do Anki em:         {installed_dir}")
 
 
 if __name__ == "__main__":

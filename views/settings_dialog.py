@@ -9,7 +9,6 @@ from ..utils.qt_compat import (
     QFormLayout,
     QGroupBox,
     QHBoxLayout,
-    QLabel,
     QLineEdit,
     QPushButton,
     QSpinBox,
@@ -131,6 +130,9 @@ class SettingsDialog(QDialog):
         self.exp_field_combo = QComboBox()
         map_form.addRow("Campo da Explicação:", self.exp_field_combo)
 
+        self.image_field_combo = QComboBox()
+        map_form.addRow("Campo da Imagem:", self.image_field_combo)
+
         self.audio_field_combo = QComboBox()
         map_form.addRow("Campo do Áudio:", self.audio_field_combo)
 
@@ -217,6 +219,7 @@ class SettingsDialog(QDialog):
             (self.front_field_combo, "front", False),
             (self.back_field_combo, "back", False),
             (self.exp_field_combo, "explanation", True),
+            (self.image_field_combo, "image", True),
             (self.audio_field_combo, "audio", False),
         ):
             combo.clear()
@@ -250,6 +253,7 @@ class SettingsDialog(QDialog):
                 "front": self.front_field_combo.currentData() or self.front_field_combo.currentText(),
                 "back": self.back_field_combo.currentData() or self.back_field_combo.currentText(),
                 "explanation": self.exp_field_combo.currentData() or "",
+                "image": self.image_field_combo.currentData() or "",
                 "audio": self.audio_field_combo.currentData() or self.audio_field_combo.currentText(),
             },
         }
