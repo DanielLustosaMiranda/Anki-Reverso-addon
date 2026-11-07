@@ -1,0 +1,4 @@
+# Dependências apenas para execução em modo standalone fora do Anki.
+# Dentro do Anki Desktop todas as dependências já vêm embutidas nativamente.
+PyQt6>=6.5.0
+edge-tts>=6.1.0

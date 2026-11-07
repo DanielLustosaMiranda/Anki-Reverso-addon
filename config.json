@@ -1,0 +1,27 @@
+{
+  "default_source_lang": "english",
+  "default_target_lang": "portuguese",
+  "default_deck": "",
+  "default_note_type": "",
+  "field_mapping": {
+    "front": "Front",
+    "back": "Back",
+    "explanation": "",
+    "audio": "Front"
+  },
+  "use_custom_note_type": true,
+  "auto_generate_tts_on_send": true,
+  "shortcut": "Ctrl+Shift+R",
+  "ai_provider": "gemini",
+  "ai_api_key": "",
+  "ai_model": "gemini-2.5-flash",
+  "ai_base_url": "",
+  "ai_level": "B1",
+  "ai_style": "Conversação natural",
+  "ai_examples_count": 5,
+  "tts_provider": "free_neural",
+  "tts_api_key": "",
+  "tts_model": "gpt-4o-mini-tts",
+  "tts_voice": "alloy",
+  "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM"
+}
